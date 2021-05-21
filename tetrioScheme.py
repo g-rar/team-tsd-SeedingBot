@@ -21,7 +21,13 @@ class TetrioScheme(BaseScheme):
         self.data.columns = ["teamName","inGameName","checkedInAt","Tetr.io_Name","Discord_Name"]
         self.__apiURL = "https://ch.tetr.io/api/"
     
-    async def retrieveData(self,ignoreCheckIn:bool):
+    def seedPlayers(self, players) -> pd.DataFrame:
+        df = players
+        df.sort_values('VS',ascending=False, ignore_index=True, inplace=True)
+        df["Seed"] = df.index + 1
+        return df
+
+    async def retrieveData(self,ignoreCheckIn:bool) -> pd.DataFrame:
         #filter players who's checkin time is None
         df = self.data
         if not ignoreCheckIn:
@@ -97,7 +103,7 @@ class TetrioScheme(BaseScheme):
             retDF.loc[i] = playerRow
             self.progress = i+1
         self.finished = True
-        self._BaseScheme__client.close()
+        await self._BaseScheme__client.close()
 
         return retDF
         

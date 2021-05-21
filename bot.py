@@ -10,6 +10,7 @@ from io import StringIO
 import asyncio
 
 from tetrioScheme import TetrioScheme
+from baseScheme import BaseScheme
 from coloredText import utilStrs
 from progress import progressBar
 
@@ -31,7 +32,7 @@ async def on_ready():
 @bot.command(
     name='seedFromCsv', 
     category="main features",
-    help='<game> [-IgnoreChecking] //Seed a file from a csv file either embeding'+\
+    help='seedFromCsv <game> [-IgnoreChecking]\n......Generate a seeding from a csv file either embeding'+\
         'it alongside the command or answering with the command to the embeded file.')
 async def seedFromCsv(ctx:commands.Context, game: str = None, checkIn: str = None):
     msg:discord.Message = ctx.message
@@ -54,7 +55,7 @@ async def seedFromCsv(ctx:commands.Context, game: str = None, checkIn: str = Non
         playersDF:pd.DataFrame = pd.read_csv(StringIO(csvs))
         gamesch = gameSchemes[game]
         loop = asyncio.get_event_loop()
-        gamescheme = gamesch(ctx, playersDF, loop)
+        gamescheme:BaseScheme = gamesch(ctx, playersDF, loop)
         bar = progressBar(ctx, gamescheme)
         await ctx.send(utilStrs.INFO.format("Retrieving player data..."))
         ret = await asyncio.gather(
@@ -63,8 +64,7 @@ async def seedFromCsv(ctx:commands.Context, game: str = None, checkIn: str = Non
         )
         await ctx.send(utilStrs.INFO.format("Seeding players..."))
         df:pd.DataFrame = ret[1]
-        df.sort_values('VS',ascending=False, ignore_index=True, inplace=True)
-        df["Seed"] = df.index + 1
+        df = gamescheme.seedPlayers(df)
 
         dfcsv = df.to_csv(index=False)
 
@@ -75,6 +75,23 @@ async def seedFromCsv(ctx:commands.Context, game: str = None, checkIn: str = Non
 
     except Exception as e:
         await ctx.send(utilStrs.ERROR.format(e))
+
+bot.remove_command('help')
+@bot.command(
+    name='help', 
+    category="main features",
+    help='help [<command>]\n......Display this help message for all commands or just <command> if specified.')
+async def seedFromCsv(ctx:commands.Context, cmd:str = None):
+    if cmd:
+        if cmd in [c.name for c in bot.commands]:
+            c:commands.Command = bot.get_command(cmd)
+            await ctx.send(utilStrs.DIFF.format(f"{c.name} {c.help}"))
+        else:
+            cmdstr = "".join([f"+ {c.name}\n" for c in bot.commands])
+            await ctx.send(utilStrs.UNEXISTING_COMMAND.format(cmd,cmdstr))
+    else:
+        cmdstr = "".join([f"+ {c.help}\n\n" for c in bot.commands])
+        await ctx.send(utilStrs.DIFF.format(cmdstr))
 
 
 async def getCsvTextFromMsg(msg:discord.Message, ctx:commands.Context):
@@ -94,12 +111,12 @@ async def getCsvTextFromMsg(msg:discord.Message, ctx:commands.Context):
         raise Exception("Could not read CSV file")
 
 
+
 def getGamesStrDiff():
     games = ""
     for game in gameSchemes.keys():
         games += "+ "+game+"\n"
     return games
-
 
 if __name__ == '__main__':
     bot.run(TOKEN)

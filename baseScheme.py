@@ -16,12 +16,14 @@ class BaseScheme:
         self.data:pd.DataFrame = data
         self.progress = 0
         self.finished = False
-        self.__apiURL = "https://ch.tetr.io/api/"
         self.__client = aiohttp.ClientSession(loop=loop)
 
-    async def processData(self,ignoreCheckIn:bool):
+    async def retrieveData(self,ignoreCheckIn:bool) -> pd.DataFrame:
         raise NotImplementedError
-    
+
+    def seedPlayers(self,players:pd.DataFrame) -> pd.DataFrame:
+        raise NotImplementedError
+
     async def __getJson(self, url):
         async with self.__client.get(url) as response:
             return (response.status, await response.read())

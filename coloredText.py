@@ -12,6 +12,11 @@ The currently supported games are:
 
 {}
 ```'''
+    UNEXISTING_COMMAND = '''```diff
+- There is no '{}' command. The currently supported commands are:
+
+{}
+```'''
     WARNING = '''```fix
 [ {} ]
 ```'''
@@ -20,4 +25,8 @@ The currently supported games are:
 ```'''
     INFO = '''```ini
 [ {} ]
+```'''
+    NORMAL = '```{}```'
+    DIFF = '''```diff
+{}
 ```'''
