@@ -1,6 +1,9 @@
 class utilStrs:
     SPECIFY_GAME = '''```diff
-👉 You must specify the game you're going to seed using '-tsds seedFromCsv <game> [-IgnoreCheckIn]'. The currently supported games are:
+👉 You must specify the game you're going to seed using: 
+'-tsds seedFromCsv <game> [-IgnoreCheckIn]'. 
+
+The currently supported games are:
 
 {}
 ```'''

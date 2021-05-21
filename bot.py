@@ -46,7 +46,6 @@ async def seedFromCsv(ctx:commands.Context, game: str = None, checkIn: str = Non
         games = getGamesStrDiff()
         await ctx.send(baseStr.format(game, games))
         return
-    print(checkIn)
     if checkIn != "-IgnoreCheckIn":
         checkInBool = False    
     
@@ -62,7 +61,6 @@ async def seedFromCsv(ctx:commands.Context, game: str = None, checkIn: str = Non
             bar.setupProgressBar(),
             gamescheme.retrieveData(checkInBool)
         )
-        # await gamescheme.processData()
         await ctx.send(utilStrs.INFO.format("Seeding players..."))
         df:pd.DataFrame = ret[1]
         df.sort_values('VS',ascending=False, ignore_index=True, inplace=True)
@@ -74,10 +72,6 @@ async def seedFromCsv(ctx:commands.Context, game: str = None, checkIn: str = Non
             content=utilStrs.INFO.format("File generated"),
             file= File(fp=StringIO(dfcsv), filename="Seeding.csv")
             )
-
-        # df = df.to_csv()
-
-        # TODO implement scheme and progressbar logic
 
     except Exception as e:
         await ctx.send(utilStrs.ERROR.format(e))
@@ -107,4 +101,5 @@ def getGamesStrDiff():
     return games
 
 
-bot.run(TOKEN)
+if __name__ == '__main__':
+    bot.run(TOKEN)
