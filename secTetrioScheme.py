@@ -15,7 +15,7 @@ import json
 # output
 # Seed, BattlefyName, Name, Discord, TR, Glicko, VS, APM, PPS, Sprint, Blitz, Hours
 
-class TetrioScheme(BaseScheme):
+class SecTetrioScheme(BaseScheme):
     def __init__(self, ctx:commands.Context, data:pd.DataFrame, loop: asyncio.BaseEventLoop):
         super().__init__(ctx, data, loop)
         self.data.columns = ["teamName","inGameName","checkedInAt","Tetr.io_Name","Discord_Name"]
@@ -28,7 +28,7 @@ class TetrioScheme(BaseScheme):
         return df
 
     async def retrieveData(self,ignoreCheckIn:bool) -> pd.DataFrame:
-        #filter players who's checkin time is NaN
+        #filter players who's checkin time is None
         df = self.data
         if not ignoreCheckIn:
             df = df[df["checkedInAt"] == df["checkedInAt"]].reset_index(drop=True)
@@ -38,15 +38,14 @@ class TetrioScheme(BaseScheme):
         
         outPutCols = ['Seed', 'BattlefyName', 'Name', 'Discord', 'TR', 'Glicko', 'VS', 'APM', 'PPS', 'Sprint', 'Blitz']
         retDF = pd.DataFrame(columns=outPutCols)
-        
-        #function for async foreach
-        async def getPlayerAt(i):
+                        
+        for i in range(len(df)):
             player = df.iloc[i]
             playerName:str = self.getPlayerName(player["Tetr.io_Name"])
             ingameName:str = player["teamName"]
             if not playerName:
                 await self.context.send(err.format("Error: " + ingameName + " does not have tetr.io name."))
-                return
+                continue
             playerName:str = playerName.lower()
             
             status1, reqData = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}")
@@ -54,10 +53,10 @@ class TetrioScheme(BaseScheme):
 
             if status1 != 200:
                 await self.context.send(err.format(f"Error {status1}: for tetr.io username '{playerName}'."))
-                return
+                continue
             if status2 != 200:
                 await self.context.send(err.format(f"Error {status2}: for tetr.io username '{playerName}'."))
-                return
+                continue
 
             # the request was succesful
             playerData = json.loads(reqData.decode('utf-8'))
@@ -65,11 +64,11 @@ class TetrioScheme(BaseScheme):
 
             if not playerData["success"]:
                 await self.context.send(err.format(f"Error: '{playerName}' does not exist."))
-                return
+                continue
 
             if not playerData["success"]:
                 await self.context.send(err.format(f"Error: Could not retrieve records for '{playerName}'"))
-                return
+                continue
 
             playerData = playerData["data"]["user"]
             playerRecords = playerRecords["data"]["records"]
@@ -102,10 +101,8 @@ class TetrioScheme(BaseScheme):
                 playerBlitz
             ]
             retDF.loc[i] = playerRow
-            self.progress += 1
-        
-        coros = [getPlayerAt(i) for i in range(len(df))]
-        await asyncio.gather(*coros)
+            self.progress = i+1        
+        # async attemp
 
         self.finished = True
         await self._BaseScheme__client.close()

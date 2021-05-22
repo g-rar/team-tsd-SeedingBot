@@ -10,20 +10,27 @@ from io import StringIO
 import asyncio
 
 from tetrioScheme import TetrioScheme
+from secTetrioScheme import SecTetrioScheme
 from baseScheme import BaseScheme
 from coloredText import utilStrs
 from progress import progressBar
 
+# TODO implement functionality to sort
 
+gameSchemes = {
+    "tetr.io":TetrioScheme,
+    "secuential-tetr.io":SecTetrioScheme
+}
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 
-gameSchemes = {
-    "tetr.io":TetrioScheme
-}
+preffix = '-tsds '
+if os.getenv('DEV'):
+    preffix = '-tsdev '
 
-bot = commands.Bot(command_prefix='-tsds ')
+bot = commands.Bot(command_prefix=preffix)
+
 
 @bot.listen('on_ready')
 async def on_ready():
