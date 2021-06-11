@@ -38,9 +38,10 @@ class TetrioScheme(BaseScheme):
         
         outPutCols = ['Seed', 'BattlefyName', 'Name', 'Discord', 'TR', 'Glicko', 'VS', 'APM', 'PPS', 'Sprint', 'Blitz']
         retDF = pd.DataFrame(columns=outPutCols)
-        
+        logCall = []
         #function for async foreach
         async def getPlayerAt(i):
+            logCall.append("called for player "+str(i))
             player = df.iloc[i]
             playerName:str = self.getPlayerName(player["Tetr.io_Name"])
             ingameName:str = player["teamName"]
@@ -103,8 +104,9 @@ class TetrioScheme(BaseScheme):
             ]
             retDF.loc[i] = playerRow
             self.progress += 1
-        
+        print(logCall)
         coros = [getPlayerAt(i) for i in range(len(df))]
+        print(len(coros))
         await asyncio.gather(*coros)
 
         self.finished = True
@@ -122,8 +124,4 @@ class TetrioScheme(BaseScheme):
         elif "s/" in name:
             i = name.find('s/',1)
             ret = name[i+2:]
-        return ret
-
-
-            
-
+        return ret.strip()
