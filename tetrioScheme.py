@@ -15,6 +15,9 @@ import json
 # output
 # Seed, BattlefyName, Name, Discord, TR, Glicko, VS, APM, PPS, Sprint, Blitz, Hours
 
+tetrioRanks = ["z","d","d+"] + [let + sign for let in "cbas" for sign in ["-","","+"]] + ["ss","u",'x']
+
+
 class TetrioScheme(BaseScheme):
     def __init__(self, ctx:commands.Context, data:pd.DataFrame, loop: asyncio.BaseEventLoop):
         super().__init__(ctx, data, loop)
@@ -27,12 +30,16 @@ class TetrioScheme(BaseScheme):
         df["Seed"] = df.index + 1
         return df
 
-    async def retrieveData(self,ignoreCheckIn:bool) -> pd.DataFrame:
+    async def retrieveData(self,ignoreCheckIn:bool, checkRank:str, filterNoRank:bool) -> pd.DataFrame:
         #filter players who's checkin time is NaN
         df = self.data
         if not ignoreCheckIn:
             df = df[df["checkedInAt"] == df["checkedInAt"]].reset_index(drop=True)
-        
+
+        if checkRank:
+            print("Checking for rank ", checkRank)
+
+
         war = utilStrs.WARNING
         err = utilStrs.ERROR
         
@@ -56,9 +63,6 @@ class TetrioScheme(BaseScheme):
             if status1 != 200:
                 await self.context.send(err.format(f"Error {status1}: for tetr.io username '{playerName}'."))
                 return
-            if status2 != 200:
-                await self.context.send(err.format(f"Error {status2}: for tetr.io username '{playerName}'."))
-                return
 
             # the request was succesful
             playerData = json.loads(reqData.decode('utf-8'))
@@ -74,6 +78,28 @@ class TetrioScheme(BaseScheme):
 
             playerData = playerData["data"]["user"]
             playerRecords = playerRecords["data"]["records"]
+
+            if filterNoRank and playerData["league"]["rank"] == 'z':
+                await self.context.send(err.format(f"Error: '{playerName}' has no rank "))
+                return
+
+
+            if checkRank:
+                if tetrioRanks.index(playerData["league"]["rank"]) > tetrioRanks.index(checkRank):
+                    await self.context.send(err.format(f"Error: '{playerName}' has rank '{playerData['league']['rank']}', higher than '{checkRank}'"))
+                    return
+                status3, reqNews = await self._BaseScheme__getJson(self.__apiURL + f"news/user_{playerData['_id']}")
+                playerNews = json.loads(reqNews.decode('utf-8'))
+                if status3 != 200:
+                    await self.context.send(err.format(f"Error {status2}: for tetr.io username '{playerName}'."))
+                    return
+                if not playerNews["success"]:
+                    await self.context.send(err.format(f"Error: Could not retrieve news for '{playerName}'"))
+                    return
+                news = playerNews["data"]["news"]
+                for new in news:
+                    if new["type"] == "rankup" and tetrioRanks.index(new["data"]["rank"]) > tetrioRanks.index(checkRank):
+                        await self.context.send(err.format(f"Error: '{playerName}' has achieved '{new['data']['rank']}', higher than '{checkRank}'"))
 
             # get and validate rest of needed info
             playerDiscord:str = player["Discord_Name"]
