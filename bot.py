@@ -51,7 +51,7 @@ async def getPlayers(ctx:commands.Context, game: str = None, opt1: str = None, o
     print("Getting players with",options)
     checkRank = options.get("-CheckRankUnder", False)
     filterNoRank = options.get("-FilterNoRank", False)
-    checkInBool = not options.get("-IgnoreCheckIn", False) # true if must filter
+    checkInBool = options.get("-IgnoreCheckIn", False) # true if must filter
 
     if game == None or game == "":
         baseStr = utilStrs.SPECIFY_GAME
