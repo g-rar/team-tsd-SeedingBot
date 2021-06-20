@@ -8,6 +8,7 @@ from discord.ext import commands
 import pandas as pd
 from coloredText import utilStrs
 import json
+import traceback
 
 # input
 # "teamName","inGameName","checkedInAt","Tetr.io name","Discord Username (with numbers)"
@@ -45,94 +46,96 @@ class TetrioScheme(BaseScheme):
         
         outPutCols = ['Seed', 'BattlefyName', 'Name', 'Discord', 'TR', 'Glicko', 'VS', 'APM', 'PPS', 'Sprint', 'Blitz']
         retDF = pd.DataFrame(columns=outPutCols)
-        logCall = []
         #function for async foreach
         async def getPlayerAt(i):
-            logCall.append("called for player "+str(i))
-            player = df.iloc[i]
-            playerName:str = self.getPlayerName(player["Tetr.io_Name"])
-            ingameName:str = player["teamName"]
-            if not playerName:
-                await self.context.send(err.format("Error: " + ingameName + " does not have tetr.io name."))
-                return
-            playerName:str = playerName.lower()
-            
-            status1, reqData = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}")
-            status2, reqRecords = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}/records")
-
-            if status1 != 200:
-                await self.context.send(err.format(f"Error {status1}: for tetr.io username '{playerName}'."))
-                return
-
-            # the request was succesful
-            playerData = json.loads(reqData.decode('utf-8'))
-            playerRecords = json.loads(reqRecords.decode('utf-8'))
-
-            if not playerData["success"]:
-                await self.context.send(err.format(f"Error: '{playerName}' does not exist."))
-                return
-
-            if not playerData["success"]:
-                await self.context.send(err.format(f"Error: Could not retrieve records for '{playerName}'"))
-                return
-
-            playerData = playerData["data"]["user"]
-            playerRecords = playerRecords["data"]["records"]
-
-            if filterNoRank and playerData["league"]["rank"] == 'z':
-                await self.context.send(err.format(f"Error: '{playerName}' has no rank "))
-                return
-
-
-            if checkRank:
-                if tetrioRanks.index(playerData["league"]["rank"]) > tetrioRanks.index(checkRank):
-                    await self.context.send(err.format(f"Error: '{playerName}' has rank '{playerData['league']['rank']}', higher than '{checkRank}'"))
+            try:
+                player = df.iloc[i]
+                playerName:str = player["Tetr.io_Name"]
+                ingameName:str = player["teamName"]
+                if not playerName or playerName != playerName:
+                    await self.context.send(err.format("Error: " + ingameName + " does not have tetr.io name."))
                     return
-                status3, reqNews = await self._BaseScheme__getJson(self.__apiURL + f"news/user_{playerData['_id']}")
-                playerNews = json.loads(reqNews.decode('utf-8'))
-                if status3 != 200:
-                    await self.context.send(err.format(f"Error {status2}: for tetr.io username '{playerName}'."))
+                playerName:str = self.getPlayerName(playerName).lower()
+                
+                status1, reqData = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}")
+                status2, reqRecords = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}/records")
+
+                if status1 != 200:
+                    await self.context.send(err.format(f"Error {status1}: for tetr.io username '{playerName}'."))
                     return
-                if not playerNews["success"]:
-                    await self.context.send(err.format(f"Error: Could not retrieve news for '{playerName}'"))
+
+                # the request was succesful
+                playerData = json.loads(reqData.decode('utf-8'))
+                playerRecords = json.loads(reqRecords.decode('utf-8'))
+
+                if not playerData["success"]:
+                    await self.context.send(err.format(f"Error: '{playerName}' does not exist."))
                     return
-                news = playerNews["data"]["news"]
-                for new in news:
-                    if new["type"] == "rankup" and tetrioRanks.index(new["data"]["rank"]) > tetrioRanks.index(checkRank):
-                        await self.context.send(err.format(f"Error: '{playerName}' has achieved '{new['data']['rank']}', higher than '{checkRank}'"))
 
-            # get and validate rest of needed info
-            playerDiscord:str = player["Discord_Name"]
-            playerTR:int = round(playerData["league"]["rating"])
-            playerGlicko:float = round(playerData["league"].get("glicko", -1))
-            playerVS:float = playerData["league"].get("vs", 0.0)
-            playerAPM:float = playerData["league"].get("apm", 0.0)
-            playerPPS:float = playerData["league"].get("pps", 0.0)
+                if not playerData["success"]:
+                    await self.context.send(err.format(f"Error: Could not retrieve records for '{playerName}'"))
+                    return
 
-            playerSprint = playerRecords["40l"]["record"]
-            playerBlitz = playerRecords["blitz"]["record"]
-            
-            playerSprint:float = round(playerSprint["endcontext"]["finalTime"],2) if playerSprint is not None else 999999.00
-            playerBlitz:float = playerBlitz["endcontext"]["score"] if playerBlitz is not None else 0
+                playerData = playerData["data"]["user"]
+                playerRecords = playerRecords["data"]["records"]
 
-            playerRow = [
-                -1, #Seed will be re assigned later
-                ingameName,
-                playerName,
-                playerDiscord,
-                playerTR,
-                playerGlicko,
-                playerVS,
-                playerAPM,
-                playerPPS,
-                playerSprint,
-                playerBlitz
-            ]
-            retDF.loc[i] = playerRow
-            self.progress += 1
-        print(logCall)
+                if filterNoRank and playerData["league"]["rank"] == 'z':
+                    await self.context.send(err.format(f"Error: '{playerName}' has no rank "))
+                    return
+
+
+                if checkRank:
+                    if tetrioRanks.index(playerData["league"]["rank"]) > tetrioRanks.index(checkRank):
+                        await self.context.send(err.format(f"Error: '{playerName}' has rank '{playerData['league']['rank']}', higher than '{checkRank}'"))
+                        return
+                    status3, reqNews = await self._BaseScheme__getJson(self.__apiURL + f"news/user_{playerData['_id']}")
+                    playerNews = json.loads(reqNews.decode('utf-8'))
+                    if status3 != 200:
+                        await self.context.send(err.format(f"Error {status2}: for tetr.io username '{playerName}'."))
+                        return
+                    if not playerNews["success"]:
+                        await self.context.send(err.format(f"Error: Could not retrieve news for '{playerName}'"))
+                        return
+                    news = playerNews["data"]["news"]
+                    for new in news:
+                        if new["type"] == "rankup" and tetrioRanks.index(new["data"]["rank"]) > tetrioRanks.index(checkRank):
+                            await self.context.send(err.format(f"Error: '{playerName}' has achieved '{new['data']['rank']}', higher than '{checkRank}'"))
+
+                # get and validate rest of needed info
+                playerDiscord:str = player["Discord_Name"]
+                playerTR:int = round(playerData["league"]["rating"])
+                playerGlicko:float = round(playerData["league"].get("glicko", -1))
+                playerVS:float = playerData["league"].get("vs", 0.0)
+                playerAPM:float = playerData["league"].get("apm", 0.0)
+                playerPPS:float = playerData["league"].get("pps", 0.0)
+
+                playerSprint = playerRecords["40l"]["record"]
+                playerBlitz = playerRecords["blitz"]["record"]
+                
+                playerSprint:float = round(playerSprint["endcontext"]["finalTime"],2) if playerSprint is not None else 999999.00
+                playerBlitz:float = playerBlitz["endcontext"]["score"] if playerBlitz is not None else 0
+
+                playerRow = [
+                    -1, #Seed will be re assigned later
+                    ingameName,
+                    playerName,
+                    playerDiscord,
+                    playerTR,
+                    playerGlicko,
+                    playerVS,
+                    playerAPM,
+                    playerPPS,
+                    playerSprint,
+                    playerBlitz
+                ]
+                retDF.loc[i] = playerRow
+                self.progress += 1
+            except Exception as e:
+                traceback.print_exc()
+                await self.context.send(err.format(f"Error: Looks like there was an error for player at row '{i}'"))
+
+
         coros = [getPlayerAt(i) for i in range(len(df))]
-        print(len(coros))
         await asyncio.gather(*coros)
 
         self.finished = True
