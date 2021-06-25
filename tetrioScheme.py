@@ -24,22 +24,28 @@ class TetrioScheme(BaseScheme):
         super().__init__(ctx, data, loop)
         self.data.columns = ["teamName","inGameName","checkedInAt","Tetr.io_Name","Discord_Name"]
         self.__apiURL = "https://ch.tetr.io/api/"
-    
-    def seedPlayers(self, players) -> pd.DataFrame:
-        df = players
-        df.sort_values('VS',ascending=False, ignore_index=True, inplace=True)
-        df["Seed"] = df.index + 1
-        return df
 
-    async def retrieveData(self,ignoreCheckIn:bool, checkRank:str, filterNoRank:bool) -> pd.DataFrame:
+    def getOptions(self) -> list:
+        return ["-CheckRankUnder","-FilterNoRank"]
+    
+    def getOptionsHelp(self) -> list:
+        return ["-CheckRankUnder=<rank>","-FilterNoRank"]
+
+    async def checkOptions(self, **kwargs):
+        checkRank = kwargs.get('-CheckRankUnder', None)
+        if checkRank and checkRank not in tetrioRanks:
+            await self._BaseScheme__client.close()
+            raise Exception( f"The rank '{checkRank}' does not exist. You must type the rank in lower case.")        
+        return True
+
+    async def retrieveData(self, **kwargs) -> pd.DataFrame:
         #filter players who's checkin time is NaN
         df = self.data
+        ignoreCheckIn = kwargs.get("-IgnoreCheckIn",False)
         if not ignoreCheckIn:
             df = df[df["checkedInAt"] == df["checkedInAt"]].reset_index(drop=True)
-
-        if checkRank:
-            print("Checking for rank ", checkRank)
-
+        
+        checkRank = kwargs.get('-CheckRankUnder', None)
 
         war = utilStrs.WARNING
         err = utilStrs.ERROR
@@ -72,17 +78,16 @@ class TetrioScheme(BaseScheme):
                     await self.context.send(err.format(f"Error: '{playerName}' does not exist."))
                     return
 
-                if not playerData["success"]:
+                if not playerRecords["success"]:
                     await self.context.send(err.format(f"Error: Could not retrieve records for '{playerName}'"))
                     return
 
                 playerData = playerData["data"]["user"]
                 playerRecords = playerRecords["data"]["records"]
 
-                if filterNoRank and playerData["league"]["rank"] == 'z':
+                if kwargs.get('-FilterNoRank', False) and playerData["league"]["rank"] == 'z':
                     await self.context.send(err.format(f"Error: '{playerName}' has no rank "))
                     return
-
 
                 if checkRank:
                     if tetrioRanks.index(playerData["league"]["rank"]) > tetrioRanks.index(checkRank):

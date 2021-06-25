@@ -15,7 +15,8 @@ import json
 # output
 # Seed, BattlefyName, Name, Discord, TR, Glicko, VS, APM, PPS, Sprint, Blitz, Hours
 
-# TODO Adjuntas cuentas no reconocidas al final de la tabla
+# TODO Return players with issues as well
+# TODO Update code to use keyword arguments
 
 class SecTetrioScheme(BaseScheme):
     def __init__(self, ctx:commands.Context, data:pd.DataFrame, loop: asyncio.BaseEventLoop):

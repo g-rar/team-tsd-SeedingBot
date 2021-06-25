@@ -18,10 +18,17 @@ class BaseScheme:
         self.finished = False
         self.__client = aiohttp.ClientSession(loop=loop)
 
-    async def retrieveData(self,ignoreCheckIn:bool) -> pd.DataFrame:
+    async def retrieveData(self, **kwargs) -> pd.DataFrame:
         raise NotImplementedError
 
     def seedPlayers(self,players:pd.DataFrame) -> pd.DataFrame:
+        raise NotImplementedError
+
+    async def checkOptions(self, **kwargs) -> bool:
+        '''If something with the given options is not right, raises an exception and may send feedback msg.'''
+        raise NotImplementedError
+
+    def getOptions(self, optDict) -> list:
         raise NotImplementedError
 
     async def __getJson(self, url):

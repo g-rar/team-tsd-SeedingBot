@@ -20,7 +20,7 @@ from progress import progressBar
 
 gameSchemes = {
     "tetr.io":TetrioScheme,
-    "secuential-tetr.io":SecTetrioScheme
+    # "secuential-tetr.io":SecTetrioScheme
 }
 
 load_dotenv()
@@ -44,14 +44,10 @@ async def on_ready():
     category="main features",
     help='getPlayers <game> [-IgnoreCheckIn] [-CheckRankUnder=<rank>] [-FilterNoRank]\n......Generate a seeding from a csv file either embeding '
         'it alongside the command or answering with the command to the embeded file.')
-async def getPlayers(ctx:commands.Context, game: str = None, opt1: str = None, opt2: str = None, opt3:str = None):
+async def getPlayers(ctx:commands.Context, game: str = None, *args):
     msg:discord.Message = ctx.message
-    checkInBool = True
-    options = getOptions([opt1, opt2, opt3], ["-IgnoreCheckIn", "-CheckRankUnder","-FilterNoRank"])
+    options = getOptions(args)
     print("Getting players with",options)
-    checkRank = options.get("-CheckRankUnder", False)
-    filterNoRank = options.get("-FilterNoRank", False)
-    checkInBool = options.get("-IgnoreCheckIn", False) # true if must filter
 
     if game == None or game == "":
         baseStr = utilStrs.SPECIFY_GAME
@@ -63,10 +59,6 @@ async def getPlayers(ctx:commands.Context, game: str = None, opt1: str = None, o
         games = getGamesStrDiff()
         await ctx.send(baseStr.format(game, games))
         return
-    if checkRank and checkRank not in tetrioRanks:
-        await ctx.send(utilStrs.ERROR.format(f"The rank {checkRank} does not exist"))
-        await ctx.send(utilStrs.INFO.format(f"Indicate the rank in lowercase"))
-        return
     
     try:
         csvs:str = await getCsvTextFromMsg(msg, ctx)
@@ -74,11 +66,12 @@ async def getPlayers(ctx:commands.Context, game: str = None, opt1: str = None, o
         gamesch = gameSchemes[game]
         loop = asyncio.get_event_loop()
         gamescheme:BaseScheme = gamesch(ctx, playersDF, loop)
+        await gamescheme.checkOptions(**options) #if something in the options is not right raises exception
         bar = progressBar(ctx, gamescheme)
         await ctx.send(utilStrs.INFO.format("Retrieving player data..."))
         ret = await asyncio.gather(
             bar.setupProgressBar(),
-            gamescheme.retrieveData(checkInBool, checkRank, filterNoRank)
+            gamescheme.retrieveData(**options)
         )
         await ctx.send(utilStrs.INFO.format("Data retrieved"))
         df:pd.DataFrame = ret[1]
@@ -164,19 +157,18 @@ async def getCsvTextFromMsg(msg:discord.Message, ctx:commands.Context):
     else:
         raise Exception("Could not read CSV file")
 
-def getOptions(optList, keys):
+def getOptions(optList):
     options = {}
     optList = list(filter(lambda x: x != None, optList))
     optListKeys = [opt.split("=")[0] for opt in optList]
     for i  in range(len(optListKeys)):
         elem = optListKeys[i]
         opt = optList[i]
-        if elem in keys:
-            if "=" not in opt:
-                options[elem] = True
-            else:
-                opt = opt.split("=")
-                options[opt[0]] = opt[1]
+        if "=" not in opt:
+            options[elem] = True
+        else:
+            opt = opt.split("=")
+            options[opt[0]] = opt[1]
     return options
 
 def getGamesStrDiff():
