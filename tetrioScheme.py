@@ -134,10 +134,10 @@ class TetrioScheme(BaseScheme):
                     playerBlitz
                 ]
                 retDF.loc[i] = playerRow
-                self.progress += 1
             except Exception as e:
                 traceback.print_exc()
                 await self.context.send(err.format(f"Error: Looks like there was an error for player at row '{i}'"))
+            self.progress += 1
 
 
         coros = [getPlayerAt(i) for i in range(len(df))]
