@@ -63,17 +63,14 @@ class TetrioScheme(BaseScheme):
                     return
                 playerName:str = self.getPlayerName(playerName).lower()
                 
-                status1, reqData = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}")
-                status2, reqRecords = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}/records")
+                status1, playerData = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}")
+                status2, playerRecords = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}/records")
 
                 if status1 != 200:
                     await self.context.send(err.format(f"Error {status1}: for tetr.io username '{playerName}'."))
                     return
 
                 # the request was succesful
-                playerData = json.loads(reqData.decode('utf-8'))
-                playerRecords = json.loads(reqRecords.decode('utf-8'))
-
                 if not playerData["success"]:
                     await self.context.send(err.format(f"Error: '{playerName}' does not exist."))
                     return
@@ -93,8 +90,7 @@ class TetrioScheme(BaseScheme):
                     if tetrioRanks.index(playerData["league"]["rank"]) > tetrioRanks.index(checkRank):
                         await self.context.send(err.format(f"Error: '{playerName}' has rank '{playerData['league']['rank']}', higher than '{checkRank}'"))
                         return
-                    status3, reqNews = await self._BaseScheme__getJson(self.__apiURL + f"news/user_{playerData['_id']}")
-                    playerNews = json.loads(reqNews.decode('utf-8'))
+                    status3, playerNews = await self._BaseScheme__getJson(self.__apiURL + f"news/user_{playerData['_id']}")
                     if status3 != 200:
                         await self.context.send(err.format(f"Error {status2}: for tetr.io username '{playerName}'."))
                         return

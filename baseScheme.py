@@ -8,6 +8,7 @@ import pandas as pd
 from io import StringIO
 import aiohttp
 from coloredText import utilStrs as strs
+import json
 
 class BaseScheme:
     def __init__(self, ctx:commands.Context, data:pd.DataFrame,loop:asyncio.BaseEventLoop):
@@ -33,4 +34,9 @@ class BaseScheme:
 
     async def __getJson(self, url):
         async with self.__client.get(url) as response:
-            return (response.status, await response.read())
+            res = (await response.read()).decode('utf-8')
+            try:
+                return (response.status, json.loads(res))
+            except json.JSONDecodeError:
+                print("Error", response.status)
+                return (response.status, {"error":"jsonDecodeError"})

@@ -12,6 +12,7 @@ import traceback
 
 from tetrioScheme import TetrioScheme
 from secTetrioScheme import SecTetrioScheme
+from jstrisScheme import JstrisScheme
 from baseScheme import BaseScheme
 from coloredText import utilStrs
 from progress import progressBar
@@ -20,6 +21,7 @@ from progress import progressBar
 
 gameSchemes = {
     "tetr.io":TetrioScheme,
+    "jstris":JstrisScheme
     # "secuential-tetr.io":SecTetrioScheme
 }
 
@@ -31,8 +33,6 @@ if os.getenv('DEV'):
     preffix = '-tsdev '
 
 bot = commands.Bot(command_prefix=preffix)
-
-tetrioRanks = ["d","d+"] + [let + sign for let in "cbas" for sign in ["-","","+"]] + ["ss","u",'x']
 
 @bot.listen('on_ready')
 async def on_ready():
@@ -116,7 +116,7 @@ async def seedBy(ctx:commands.Context, col:str, direction:str = None):
         await ctx.send(
             content=utilStrs.INFO.format("File generated"),
             file= File(fp=StringIO(dfcsv), filename="Seeding.csv")
-            )
+        )
         
     except Exception as e:
         await ctx.send(utilStrs.ERROR.format(e))
