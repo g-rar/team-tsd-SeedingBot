@@ -38,5 +38,4 @@ class BaseScheme:
             try:
                 return (response.status, json.loads(res))
             except json.JSONDecodeError:
-                print("Error", response.status)
-                return (response.status, {"error":"jsonDecodeError"})
+                return (response.status, {"error":"jsonDecodeError", "headers": response.headers})

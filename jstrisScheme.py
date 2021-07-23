@@ -1,4 +1,6 @@
 import asyncio
+
+from discord.ext.commands.core import cooldown
 from baseScheme import BaseScheme
 
 import requests
@@ -89,13 +91,20 @@ class JstrisScheme(BaseScheme):
     async def getWithCoolDown(self, url):
         code, data = await self._BaseScheme__getJson(url)
         while code == 429: #too many requests
-            await asyncio.sleep(7)
+            try:
+                headers = data["headers"]
+                cooldown = int(headers["Retry-After"])
+                await self.context.send(utilStrs.WARNING.format(f"Waiting for cooldown: {cooldown} seconds."))
+                await asyncio.sleep(cooldown)
+            except Exception as e:
+                print(e)
+                await asyncio.sleep(10)
             code, data = await self._BaseScheme__getJson(url)
         return code, data
 
     def getPlayerName(self, name:str) -> str:
         '''This function covers the scenario where instead of inputing the 
-        tetr.io username the dumb user inputs the tetra channel link'''
+        profile link the dumb user inputs the jstris link'''
         ret = name
         if "u/" in name:
             i = name.find('u/',1)
