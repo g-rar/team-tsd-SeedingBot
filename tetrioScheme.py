@@ -26,13 +26,17 @@ class TetrioScheme(BaseScheme):
         self.__apiURL = "https://ch.tetr.io/api/"
 
     def getOptions(self) -> list:
-        return ["-CheckRankUnder","-FilterNoRank"]
+        return ["-RemoveOver","RemoveUnder","-FilterNoRank"]
     
     def getOptionsHelp(self) -> list:
-        return ["-CheckRankUnder=<rank>","-FilterNoRank"]
+        return ["-RemoveOver=<rank>","-RemoveUnder=<rank>","-FilterNoRank"]
 
     async def checkOptions(self, **kwargs):
-        checkRank = kwargs.get('-CheckRankUnder', None)
+        checkRank = kwargs.get('-RemoveOver', None)
+        if checkRank and checkRank not in tetrioRanks:
+            await self._BaseScheme__client.close()
+            raise Exception( f"The rank '{checkRank}' does not exist. You must type the rank in lower case.")        
+        checkRank = kwargs.get('-RemoveUnder', None)
         if checkRank and checkRank not in tetrioRanks:
             await self._BaseScheme__client.close()
             raise Exception( f"The rank '{checkRank}' does not exist. You must type the rank in lower case.")        
@@ -45,7 +49,8 @@ class TetrioScheme(BaseScheme):
         if not ignoreCheckIn:
             df = df[df["checkedInAt"] == df["checkedInAt"]].reset_index(drop=True)
         
-        checkRank = kwargs.get('-CheckRankUnder', None)
+        rankTop = kwargs.get('-RemoveOver', None)
+        rankBottom = kwargs.get('-RemoveUnder', None)
 
         war = utilStrs.WARNING
         err = utilStrs.ERROR
@@ -62,6 +67,8 @@ class TetrioScheme(BaseScheme):
                     await self.context.send(err.format("Error: " + ingameName + " does not have tetr.io name."))
                     return
                 playerName:str = self.getPlayerName(playerName).lower()
+
+                hasError:bool = False
                 
                 status1, playerData = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}")
                 status2, playerRecords = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}/records")
@@ -86,21 +93,32 @@ class TetrioScheme(BaseScheme):
                     await self.context.send(err.format(f"Error: '{playerName}' has no rank "))
                     return
 
-                if checkRank:
-                    if tetrioRanks.index(playerData["league"]["rank"]) > tetrioRanks.index(checkRank):
-                        await self.context.send(err.format(f"Error: '{playerName}' has rank '{playerData['league']['rank']}', higher than '{checkRank}'"))
+                if rankTop or rankBottom:
+                    # check ceiling against current rank 
+                    achievedOverBottom = False
+                    if rankTop and tetrioRanks.index(playerData["league"]["rank"]) > tetrioRanks.index(rankTop):
+                        await self.context.send(err.format(f"Error: '{playerName}' has rank '{playerData['league']['rank']}', higher than '{rankTop}'"))
                         return
+                    # get news to see previous rankUps
                     status3, playerNews = await self._BaseScheme__getJson(self.__apiURL + f"news/user_{playerData['_id']}")
                     if status3 != 200:
-                        await self.context.send(err.format(f"Error {status2}: for tetr.io username '{playerName}'."))
+                        await self.context.send(err.format(f"Error {status3}: for tetr.io username '{playerName}'."))
                         return
                     if not playerNews["success"]:
                         await self.context.send(err.format(f"Error: Could not retrieve news for '{playerName}'"))
                         return
                     news = playerNews["data"]["news"]
+                    # check against previous ranks
                     for new in news:
-                        if new["type"] == "rankup" and tetrioRanks.index(new["data"]["rank"]) > tetrioRanks.index(checkRank):
-                            await self.context.send(err.format(f"Error: '{playerName}' has achieved '{new['data']['rank']}', higher than '{checkRank}'"))
+                        if rankTop and new["type"] == "rankup" and tetrioRanks.index(new["data"]["rank"]) > tetrioRanks.index(rankTop):
+                            await self.context.send(err.format(f"Error: '{playerName}' has achieved '{new['data']['rank']}', higher than '{rankTop}'"))
+                            return
+                        if rankBottom and new["type"] == "rankup" and tetrioRanks.index(new["data"]["rank"]) >= tetrioRanks.index(rankBottom):
+                            achievedOverBottom = True
+                    # check bottom, if achieved over bottom player is included
+                    if rankBottom and not achievedOverBottom and tetrioRanks.index(playerData["league"]["rank"]) < tetrioRanks.index(rankBottom):
+                        await self.context.send(err.format(f"Error: '{playerName}' has rank '{playerData['league']['rank']}', lower than '{rankBottom}'"))
+                        return
 
                 # get and validate rest of needed info
                 playerDiscord:str = player["Discord_Name"]

@@ -42,7 +42,7 @@ async def on_ready():
 @bot.command(
     name='getPlayers', 
     category="main features",
-    help='getPlayers <game> [-IgnoreCheckIn] [-CheckRankUnder=<rank>] [-FilterNoRank]\n......Generate a seeding from a csv file either embeding '
+    help='getPlayers <game> [-IgnoreCheckIn] [-RemoveOver=<rank>] [-RemoveUnder=<rank>] [-FilterNoRank]\n......Generate a seeding from a csv file either embeding '
         'it alongside the command or answering with the command to the embeded file.')
 async def getPlayers(ctx:commands.Context, game: str = None, *args):
     msg:discord.Message = ctx.message
