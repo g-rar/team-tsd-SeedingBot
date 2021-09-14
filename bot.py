@@ -74,7 +74,7 @@ async def getPlayers(ctx:commands.Context, game: str = None, *args):
             gamescheme.retrieveData(**options)
         )
         await ctx.send(utilStrs.INFO.format("Data retrieved"))
-        df:pd.DataFrame = ret[1]
+        df:pd.DataFrame = ret[1][0]
 
         dfcsv = df.to_csv(index=False)
 
@@ -82,6 +82,16 @@ async def getPlayers(ctx:commands.Context, game: str = None, *args):
             content=utilStrs.INFO.format("File generated"),
             file= File(fp=StringIO(dfcsv), filename="Seeding.csv")
             )
+
+        if len(ret[1]) == 2:
+            df:pd.DataFrame = ret[1][1]
+
+            dfcsv = df.to_csv(index=False)
+
+            await ctx.send(
+                content=utilStrs.ERROR.format(f"There were a total of '{len(df)}' errors"),
+                file= File(fp=StringIO(dfcsv), filename="Seeding.csv")
+                )
 
     except Exception as e:
         traceback.print_exc()

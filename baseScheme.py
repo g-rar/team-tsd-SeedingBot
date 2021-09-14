@@ -1,4 +1,5 @@
 import os
+from typing import Tuple
 import requests
 import discord
 from discord.ext import commands
@@ -19,7 +20,7 @@ class BaseScheme:
         self.finished = False
         self.__client = aiohttp.ClientSession(loop=loop)
 
-    async def retrieveData(self, **kwargs) -> pd.DataFrame:
+    async def retrieveData(self, **kwargs) -> Tuple[pd.DataFrame]:
         raise NotImplementedError
 
     def seedPlayers(self,players:pd.DataFrame) -> pd.DataFrame:

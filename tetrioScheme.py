@@ -55,8 +55,9 @@ class TetrioScheme(BaseScheme):
         war = utilStrs.WARNING
         err = utilStrs.ERROR
         
-        outPutCols = ['Seed', 'BattlefyName', 'Name', 'Discord', 'TR', 'Glicko', 'VS', 'APM', 'PPS', 'Sprint', 'Blitz']
-        retDF = pd.DataFrame(columns=outPutCols)
+        outPutCols = ['BattlefyName', 'Name', 'Discord', 'TR', 'Glicko', 'VS', 'APM', 'PPS', 'Sprint', 'Blitz']
+        retDF = pd.DataFrame(columns= ["Seed"] + outPutCols)
+        errorDF = pd.DataFrame(columns= outPutCols + ["Error"])
         #function for async foreach
         async def getPlayerAt(i):
             try:
@@ -64,61 +65,32 @@ class TetrioScheme(BaseScheme):
                 playerName:str = player["Tetr.io_Name"]
                 ingameName:str = player["teamName"]
                 if not playerName or playerName != playerName:
-                    await self.context.send(err.format("Error: " + ingameName + " does not have tetr.io name."))
+                    errorDF.loc[i] = {"BattlefyName":ingameName, "Error": "Does not have tetr.io name"}
+                    self.progress += 1
                     return
                 playerName:str = self.getPlayerName(playerName).lower()
 
-                hasError:bool = False
-                
                 status1, playerData = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}")
                 status2, playerRecords = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}/records")
 
                 if status1 != 200:
-                    await self.context.send(err.format(f"Error {status1}: for tetr.io username '{playerName}'."))
+                    errorDF.loc[i] = {"BattlefyName":ingameName, "Name":playerName, "Error": f"Error {status1}"}
+                    self.progress += 1
                     return
 
-                # the request was succesful
+                # the request was not succesful
                 if not playerData["success"]:
-                    await self.context.send(err.format(f"Error: '{playerName}' does not exist."))
+                    errorDF.loc[i] = {"BattlefyName":ingameName, "Name":playerName, "Error": "Player does not exist."}
+                    self.progress += 1
                     return
 
                 if not playerRecords["success"]:
-                    await self.context.send(err.format(f"Error: Could not retrieve records for '{playerName}'"))
+                    errorDF.loc[i] = {"BattlefyName":ingameName, "Name":playerName, "Error": "Could not retrieve records"}
+                    self.progress += 1
                     return
 
                 playerData = playerData["data"]["user"]
                 playerRecords = playerRecords["data"]["records"]
-
-                if kwargs.get('-FilterNoRank', False) and playerData["league"]["rank"] == 'z':
-                    await self.context.send(err.format(f"Error: '{playerName}' has no rank "))
-                    return
-
-                if rankTop or rankBottom:
-                    # check ceiling against current rank 
-                    achievedOverBottom = False
-                    if rankTop and tetrioRanks.index(playerData["league"]["rank"]) > tetrioRanks.index(rankTop):
-                        await self.context.send(err.format(f"Error: '{playerName}' has rank '{playerData['league']['rank']}', higher than '{rankTop}'"))
-                        return
-                    # get news to see previous rankUps
-                    status3, playerNews = await self._BaseScheme__getJson(self.__apiURL + f"news/user_{playerData['_id']}")
-                    if status3 != 200:
-                        await self.context.send(err.format(f"Error {status3}: for tetr.io username '{playerName}'."))
-                        return
-                    if not playerNews["success"]:
-                        await self.context.send(err.format(f"Error: Could not retrieve news for '{playerName}'"))
-                        return
-                    news = playerNews["data"]["news"]
-                    # check against previous ranks
-                    for new in news:
-                        if rankTop and new["type"] == "rankup" and tetrioRanks.index(new["data"]["rank"]) > tetrioRanks.index(rankTop):
-                            await self.context.send(err.format(f"Error: '{playerName}' has achieved '{new['data']['rank']}', higher than '{rankTop}'"))
-                            return
-                        if rankBottom and new["type"] == "rankup" and tetrioRanks.index(new["data"]["rank"]) >= tetrioRanks.index(rankBottom):
-                            achievedOverBottom = True
-                    # check bottom, if achieved over bottom player is included
-                    if rankBottom and not achievedOverBottom and tetrioRanks.index(playerData["league"]["rank"]) < tetrioRanks.index(rankBottom):
-                        await self.context.send(err.format(f"Error: '{playerName}' has rank '{playerData['league']['rank']}', lower than '{rankBottom}'"))
-                        return
 
                 # get and validate rest of needed info
                 playerDiscord:str = player["Discord_Name"]
@@ -147,10 +119,46 @@ class TetrioScheme(BaseScheme):
                     playerSprint,
                     playerBlitz
                 ]
+                if kwargs.get('-FilterNoRank', False) and playerData["league"]["rank"] == 'z':
+                    errorDF.loc[i] = playerRow[1:] + ["Has no rank"]
+                    return
+
+                if rankTop or rankBottom:
+                    # check ceiling against current rank 
+                    achievedOverBottom = False
+                    if rankTop and tetrioRanks.index(playerData["league"]["rank"]) > tetrioRanks.index(rankTop):
+                        errorDF.loc[i] = playerRow[1:] + [f"Has rank '{playerData['league']['rank']}'>'{rankTop}'"]
+                        self.progress += 1
+                        return
+                    # get news to see previous rankUps
+                    status3, playerNews = await self._BaseScheme__getJson(self.__apiURL + f"news/user_{playerData['_id']}")
+                    if status3 != 200:
+                        errorDF.loc[i] = playerRow[1:] + [f"Error {status3}"]
+                        self.progress += 1
+                        return
+                    if not playerNews["success"]:
+                        errorDF.loc[i] = playerRow[1:] + ["Could not retrieve news"]
+                        self.progress += 1
+                        return
+                    news = playerNews["data"]["news"]
+                    # check against previous ranks
+                    for new in news:
+                        if rankTop and new["type"] == "rankup" and tetrioRanks.index(new["data"]["rank"]) > tetrioRanks.index(rankTop):
+                            errorDF.loc[i] = playerRow[1:] + [f"Has achieved '{new['data']['rank']}'>'{rankTop}'"]
+                            self.progress += 1
+                            return
+                        if rankBottom and new["type"] == "rankup" and tetrioRanks.index(new["data"]["rank"]) >= tetrioRanks.index(rankBottom):
+                            achievedOverBottom = True
+                    # check bottom, if achieved over bottom player is included
+                    if rankBottom and not achievedOverBottom and tetrioRanks.index(playerData["league"]["rank"]) < tetrioRanks.index(rankBottom):
+                        errorDF.loc[i] = playerRow[1:] + [f"Has rank '{playerData['league']['rank']}'<'{rankBottom}'"]
+                        self.progress += 1
+                        return
+
                 retDF.loc[i] = playerRow
             except Exception as e:
                 traceback.print_exc()
-                await self.context.send(err.format(f"Error: Looks like there was an error for player at row '{i}'"))
+                errorDF.loc[i] = {"BattlefyName":ingameName, "Name":playerName, "Error": f"Unknown Error, row {i}"}
             self.progress += 1
 
 
@@ -160,7 +168,7 @@ class TetrioScheme(BaseScheme):
         self.finished = True
         await self._BaseScheme__client.close()
 
-        return retDF
+        return (retDF, errorDF)
         
     def getPlayerName(self, name:str) -> str:
         '''This function covers the scenario where instead of inputing the 

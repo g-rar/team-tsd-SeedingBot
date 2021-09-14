@@ -37,24 +37,26 @@ class JstrisScheme(BaseScheme):
         war = utilStrs.WARNING
         err = utilStrs.ERROR
         
-        outPutCols = ['Seed', 'BattlefyName', 'Name', 'Discord', 
+        outPutCols = ['BattlefyName', 'Name', 'Discord', 
             'Sprint40L', 
             # 'Ultra'
         ]
-        retDF = pd.DataFrame(columns=outPutCols)
-        errorDF = pd.DataFrame(columns=df.columns)
+        retDF = pd.DataFrame(columns=["Seed"]+outPutCols)
+        errorDF = pd.DataFrame(columns=outPutCols[:-1]+["Error"])
         # async def getPlayerAt(i, t):
         for i in range(len(df)):
             try:
                 # await asyncio.sleep(t*4)
                 player = df.iloc[i]
                 playerName = player["JStris_Profile"]
+                battlefyName = player["teamName"]
+                playerDiscord = player["Discord_Name"]
                 playerName = self.getPlayerName(playerName)
                 
                 sprintResCode,sprintData = await self.getWithCoolDown(self.__apiURL + f"u/{playerName}/records/1?mode=1") #get 40l records
                 if sprintResCode != 200 or "error" in sprintData:
-                    await self.context.send(err.format(f"Could not find sprint data for '{playerName}'"))
-                    errorDF.loc[i] = player
+                    errorDF.loc[i] = {"BattlefyName":battlefyName, "Name":playerName, "Discord_Name":playerDiscord,"Error":f"Could not find sprint data"}
+                    self.progress += 1
                     continue
                 
                 # ultraResCode, ultraData = await self.getWithCoolDown(self.__apiURL + f"u/{playerName}/records/5?mode=1") #get ultra records
@@ -65,8 +67,6 @@ class JstrisScheme(BaseScheme):
                 
                 sprintPB = sprintData["min"]
                 # ultraPB = ultraData['max']
-                battlefyName = player["teamName"]
-                playerDiscord = player["Discord_Name"]
 
                 playerRow = [
                     -1, #Seed will be added afterwards
@@ -79,14 +79,14 @@ class JstrisScheme(BaseScheme):
                 retDF.loc[i] = playerRow
             except Exception as e:
                 traceback.print_exc()
-                await self.context.send(err.format(f"Error: Looks like there was an error for player at row '{i}'"))
+                errorDF.loc[i] = {"Error":f"Unknown error at row '{i}'"}
             self.progress += 1
 
         # coros = [getPlayerAt(i, i%5) for i in range(len(df))]
         # await asyncio.gather(*coros)
         self.finished = True
         await self._BaseScheme__client.close()
-        return retDF
+        return (retDF, errorDF)
 
     async def getWithCoolDown(self, url):
         code, data = await self._BaseScheme__getJson(url)
