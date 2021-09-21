@@ -7,8 +7,10 @@ from discord.ext import commands
 
 import pandas as pd
 from coloredText import utilStrs
-import json
+import logging
+import re
 import traceback
+from urllib.parse import quote_plus as urlFormat
 
 # input
 # "teamName","inGameName","checkedInAt","Tetr.io name","Discord Username (with numbers)"
@@ -17,7 +19,11 @@ import traceback
 # Seed, BattlefyName, Name, Discord, TR, Glicko, VS, APM, PPS, Sprint, Blitz, Hours
 
 tetrioRanks = ["z","d","d+"] + [let + sign for let in "cbas" for sign in ["-","","+"]] + ["ss","u",'x']
-
+tetrioNamePttr = (
+    r"(?=^[a-z0-9\-_]{3,16}$)" # length of 3-16, only a-z, 0-9, dash and underscore
+    r"(?=^(?!guest-.*$).*)"    # does not start with guest-
+    r"(?=.*[a-z0-9].*)"        # has a letter or number somewhere
+)
 
 class TetrioScheme(BaseScheme):
     def __init__(self, ctx:commands.Context, data:pd.DataFrame, loop: asyncio.BaseEventLoop):
@@ -68,7 +74,13 @@ class TetrioScheme(BaseScheme):
                     errorDF.loc[i] = {"BattlefyName":ingameName, "Error": "Does not have tetr.io name"}
                     self.progress += 1
                     return
+                
                 playerName:str = self.getPlayerName(playerName).lower()
+
+                if not re.match(tetrioNamePttr, playerName):
+                    errorDF.loc[i] = {"BattlefyName":ingameName, "Name":playerName, "Error": f"Invalid tetrio username"}
+                    self.progress += 1
+                    return
 
                 status1, playerData = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}")
                 status2, playerRecords = await self._BaseScheme__getJson(self.__apiURL + f"users/{playerName}/records")
@@ -157,7 +169,7 @@ class TetrioScheme(BaseScheme):
 
                 retDF.loc[i] = playerRow
             except Exception as e:
-                traceback.print_exc()
+                logging.error(f"At row {i} --\n {traceback.format_exc()}")
                 errorDF.loc[i] = {"BattlefyName":ingameName, "Name":playerName, "Error": f"Unknown Error, row {i}"}
             self.progress += 1
 

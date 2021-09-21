@@ -9,6 +9,8 @@ import pandas as pd
 from io import StringIO
 import asyncio
 import traceback
+import logging
+from pprint import pformat
 
 from tetrioScheme import TetrioScheme
 from secTetrioScheme import SecTetrioScheme
@@ -17,13 +19,13 @@ from baseScheme import BaseScheme
 from coloredText import utilStrs
 from progress import progressBar
 
-# TODO implement functionality to sort by any given column
-
 gameSchemes = {
     "tetr.io":TetrioScheme,
     "jstris":JstrisScheme
     # "secuential-tetr.io":SecTetrioScheme
 }
+
+logging.basicConfig(level=logging.INFO,format="%(asctime)s - %(funcName)s:%(lineno)d - %(levelname)s: %(message)s", filename="output.log", filemode="a")
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -37,6 +39,7 @@ bot = commands.Bot(command_prefix=preffix)
 @bot.listen('on_ready')
 async def on_ready():
     print("Connected to discord")
+    logging.info("Connected to discord")
 
 
 @bot.command(
@@ -48,6 +51,7 @@ async def getPlayers(ctx:commands.Context, game: str = None, *args):
     msg:discord.Message = ctx.message
     options = getOptions(args)
     print("Getting players with",options)
+    logging.info(f"Getting players with: {pformat(options)}")
 
     if game == None or game == "":
         baseStr = utilStrs.SPECIFY_GAME
@@ -94,7 +98,7 @@ async def getPlayers(ctx:commands.Context, game: str = None, *args):
                 )
 
     except Exception as e:
-        traceback.print_exc()
+        logging.error(traceback.format_exc())
         await ctx.send(utilStrs.ERROR.format(e))
 
 @bot.command(
