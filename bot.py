@@ -13,6 +13,7 @@ import logging
 from pprint import pformat
 
 from tetrioScheme import TetrioScheme
+from overUnderScheme import OverUnderScheme
 from secTetrioScheme import SecTetrioScheme
 from jstrisScheme import JstrisScheme
 from baseScheme import BaseScheme
@@ -21,6 +22,7 @@ from progress import progressBar
 
 gameSchemes = {
     "tetr.io":TetrioScheme,
+    'overUnder':OverUnderScheme,
     "jstris":JstrisScheme
     # "secuential-tetr.io":SecTetrioScheme
 }
